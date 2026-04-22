@@ -1,4 +1,3 @@
-import pymysql
 import os
 from flask import Flask, render_template, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
@@ -8,15 +7,15 @@ from functools import wraps
 
 # ── Bootstrap ──────────────────────────────────────────────────────────────────
 load_dotenv()
-print("MODEL:", os.getenv("NVIDIA_MODEL"))
-print("KEY:", os.getenv("NVIDIA_API_KEY", "")[:10])  # only prints first 10 chars
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-fallback-key")
 
 _db_url = os.getenv("DATABASE_URL", "sqlite:///portfolio.db")
-# Railway provides mysql:// — SQLAlchemy needs mysql+pymysql://
-if _db_url.startswith("mysql://"):
-    _db_url = _db_url.replace("mysql://", "mysql+pymysql://", 1)
+# Neon (and some platforms) provide postgres:// — SQLAlchemy needs postgresql+psycopg2://
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif _db_url.startswith("postgresql://"):
+    _db_url = _db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
 app.config["SQLALCHEMY_DATABASE_URI"]        = _db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
@@ -29,7 +28,6 @@ nvidia_client = OpenAI(
 )
 NVIDIA_MODEL   = os.getenv("NVIDIA_MODEL", "meta/llama-4-scout-17b-16e-instruct")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
-import pymysql
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MODEL
@@ -108,31 +106,6 @@ def _seed():
 
     db.session.commit()
 
-def _ensure_db_exists():
-    url = os.getenv("DATABASE_URL", "")
-    # Only needed for MySQL connections
-    if "mysql" not in url:
-        return
-    try:
-        # Parse credentials from the DATABASE_URL
-        # Format: mysql+pymysql://user:pass@host/dbname
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        conn = pymysql.connect(
-            host=parsed.hostname,
-            user=parsed.username,
-            password=parsed.password or "",
-            port=parsed.port or 3306,
-        )
-        db_name = parsed.path.lstrip("/")
-        with conn.cursor() as cur:
-            cur.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
-        conn.close()
-        print(f"✔ Database '{db_name}' ready.")
-    except Exception as e:
-        print(f"⚠ Could not auto-create database: {e}")
-
-_ensure_db_exists()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPERS
@@ -305,7 +278,6 @@ def delete_skill(sid):
 # ══════════════════════════════════════════════════════════════════════════════
 
 with app.app_context():
-    _ensure_db_exists()
     db.create_all()
     _seed()
 
