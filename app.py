@@ -12,7 +12,12 @@ print("MODEL:", os.getenv("NVIDIA_MODEL"))
 print("KEY:", os.getenv("NVIDIA_API_KEY", "")[:10])  # only prints first 10 chars
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-fallback-key")
-app.config["SQLALCHEMY_DATABASE_URI"]        = os.getenv("DATABASE_URL", "sqlite:///portfolio.db")
+
+_db_url = os.getenv("DATABASE_URL", "sqlite:///portfolio.db")
+# Railway provides mysql:// — SQLAlchemy needs mysql+pymysql://
+if _db_url.startswith("mysql://"):
+    _db_url = _db_url.replace("mysql://", "mysql+pymysql://", 1)
+app.config["SQLALCHEMY_DATABASE_URI"]        = _db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
