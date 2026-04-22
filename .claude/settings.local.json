@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/PCS/Desktop/portfolio_project/**)",
+      "Bash(git init *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\PCS\\Desktop\\portfolio_project\\portfolio"
+    ]
+  }
+}
