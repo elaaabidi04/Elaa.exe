@@ -1,4 +1,4 @@
-# 🌸 Schwanen Bhamouda — Portfolio
+# 🌸 Elaa Abidi — Portfolio
 
 A diary-aesthetic portfolio with AI chat integration, Flask MVC backend, and SQLite/MySQL database.
 
