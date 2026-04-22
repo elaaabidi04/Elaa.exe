@@ -1,30 +1,40 @@
-# 🌸 Elaa Abidi — Portfolio
+# Elaa Abidi — Portfolio
 
-A diary-aesthetic portfolio with AI chat integration, Flask MVC backend, and SQLite/MySQL database.
+A diary-aesthetic developer portfolio with an AI chat assistant, Flask MVC backend, and PostgreSQL database. Built to showcase projects, skills, and experience — and let recruiters ask questions directly to an AI that knows everything about me.
 
-## ✦ Features
-
-- **Diary aesthetic** — ruled-paper UI with your pink/blush/sky palette
-- **AI Chat bubble** — powered by NVIDIA LLaMA, answers questions about you
-- **Admin panel** — password-protected; add/delete projects, certs, and skills live
-- **MVC architecture** — clean separation via Flask + SQLAlchemy + Jinja2
-- **SQLite locally, MySQL in production**
+**Live:** [elaa-exe.onrender.com](https://elaa-exe.onrender.com)
 
 ---
 
-## 🚀 Local Setup (XAMPP or Laragon optional)
+## Features
 
-### 1. Clone & enter project
+- **Diary aesthetic UI** — ruled-paper layout with a pink/blush/lavender palette
+- **AI Chat assistant** — powered by NVIDIA LLaMA 4, answers questions about me in English, French, or Arabic
+- **Admin panel** — password-protected; add/delete projects, certifications, and skills live without touching code
+- **MVC architecture** — Flask + SQLAlchemy + Jinja2
+- **PostgreSQL on Neon** — serverless database, auto-seeded on first boot
+
+---
+
+## Tech Stack
+
+`Python` `Flask` `SQLAlchemy` `PostgreSQL` `Jinja2` `NVIDIA LLaMA 4` `Render` `Neon` `HTML/CSS`
+
+---
+
+## Local Setup
+
+### 1. Clone the repo
 ```bash
-git clone https://github.com/YOUR_USERNAME/portfolio.git
-cd portfolio
+git clone https://github.com/elaaabidi04/Elaa.exe.git
+cd Elaa.exe
 ```
 
-### 2. Create virtual environment
+### 2. Create a virtual environment
 ```bash
-python -m venv venv
-source venv/bin/activate        # Mac/Linux
-venv\Scripts\activate           # Windows
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+source .venv/bin/activate     # Mac/Linux
 ```
 
 ### 3. Install dependencies
@@ -32,67 +42,68 @@ venv\Scripts\activate           # Windows
 pip install -r requirements.txt
 ```
 
-### 4. Set up environment variables
+### 4. Configure environment variables
 ```bash
 cp .env.example .env
-# then edit .env and fill in your NVIDIA_API_KEY and other values
+# Fill in your NVIDIA_API_KEY, SECRET_KEY, and ADMIN_PASSWORD
 ```
 
-### 5. Run the app
+### 5. Run
 ```bash
 python app.py
 # → http://127.0.0.1:5000
 ```
 
-> The SQLite database is created automatically at `instance/portfolio.db` on first run with seed data.
+> SQLite is used locally by default — tables and seed data are created automatically on first run.
 
 ---
 
-## 🌐 Deploy to Railway (recommended free option)
+## Deployment (Render + Neon)
 
-1. Push your repo to GitHub (`.env` is in `.gitignore` — safe)
-2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub
-3. Add environment variables in Railway's dashboard (same keys as `.env.example`)
-4. Railway auto-detects Flask and deploys. Done.
+1. Create a PostgreSQL database on [neon.tech](https://neon.tech) and copy the connection string
+2. Create a Web Service on [render.com](https://render.com) connected to this repo
+   - **Build command:** `pip install -r requirements.txt`
+   - **Start command:** `gunicorn app:app --bind 0.0.0.0:$PORT`
+3. Set environment variables on Render:
 
----
+```
+DATABASE_URL=<Neon connection string>
+SECRET_KEY=<long random string>
+ADMIN_PASSWORD=<your password>
+NVIDIA_API_KEY=<your key>
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_MODEL=meta/llama-4-scout-17b-16e-instruct
+```
 
-## 🔑 Admin Panel
-
-Click **✦ Admin** in the nav and enter your password (set in `.env`).
-
----
-
-## 🤖 AI Chat
-
-The chat bubble uses your NVIDIA API key to answer recruiter questions about your portfolio in **English, French, or Arabic**. It reads live data from your database for every response — no hardcoding needed.
-
-Get your free NVIDIA API key at: https://build.nvidia.com
+Tables and seed data are created automatically on first boot.
 
 ---
 
-## 📁 Project Structure
+## Admin Panel
+
+Click **✦ Admin** in the nav → enter your password → manage content live.
+
+---
+
+## AI Chat
+
+The floating chat bubble lets anyone ask questions about my projects, skills, and background. It reads live data from the database and responds in the visitor's language (English, French, or Arabic).
+
+Get a free NVIDIA API key at [build.nvidia.com](https://build.nvidia.com).
+
+---
+
+## Project Structure
 
 ```
 portfolio/
-├── app.py                  # Flask app — Model + Controller
+├── app.py                  # Flask app — models, routes, AI chat
 ├── templates/
-│   └── index.html          # Jinja2 View
-├── instance/
-│   └── portfolio.db        # SQLite DB (auto-created, git-ignored)
+│   └── index.html          # Jinja2 template — full frontend
+├── static/
+│   └── logo.png            # Site icon
+├── Procfile                # Render start command
 ├── requirements.txt
-├── .env                    # Secret values (git-ignored)
-├── .env.example            # Template to share
+├── .env.example
 └── .gitignore
 ```
-
----
-
-## 🛠 Switching to MySQL (production)
-
-1. Change `DATABASE_URL` in `.env`:
-   ```
-   DATABASE_URL=mysql+pymysql://user:password@localhost/portfolio_db
-   ```
-2. Import `portfolio_db.sql` into your MySQL server
-3. That's it — SQLAlchemy handles the rest
