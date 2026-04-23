@@ -762,6 +762,16 @@ const App = (() => {
 document.getElementById('login-modal').addEventListener('click', function(e) {
   if (e.target === this) App.closeLoginModal();
 });
+
+// Lift chat window when mobile keyboard opens
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    const keyboardHeight = window.innerHeight - window.visualViewport.height;
+    const offset = keyboardHeight > 50 ? keyboardHeight + 8 : 32;
+    document.getElementById('chat-window').style.bottom  = offset + 'px';
+    document.getElementById('chat-trigger').style.bottom = offset + 'px';
+  });
+}
 </script>
 </body>
 </html>

@@ -6,7 +6,8 @@
       "Bash(git remote *)",
       "Bash(git branch *)",
       "Bash(git pull *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(.venv/Scripts/pip install *)"
     ],
     "additionalDirectories": [
       "c:\\Users\\PCS\\Desktop\\portfolio_project\\portfolio"
