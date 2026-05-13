@@ -43,15 +43,19 @@ class Project(db.Model):
     description = db.Column(db.Text,        nullable=False)
     tags        = db.Column(db.String(300), default="")
     url         = db.Column(db.String(300), default="")
+    demo_url    = db.Column(db.String(300), default="")
+    image       = db.Column(db.Text,        default="")
 
     def to_dict(self):
         return {
-            "id":    self.id,
-            "name":  self.name,
-            "emoji": self.emoji,
-            "desc":  self.description,
-            "tags":  [t.strip() for t in self.tags.split(",") if t.strip()],
-            "url":   self.url,
+            "id":       self.id,
+            "name":     self.name,
+            "emoji":    self.emoji,
+            "desc":     self.description,
+            "tags":     [t.strip() for t in self.tags.split(",") if t.strip()],
+            "url":      self.url,
+            "demo_url": self.demo_url or "",
+            "image":    self.image or "",
         }
 
 
@@ -62,10 +66,11 @@ class Certification(db.Model):
     issuer = db.Column(db.String(100), nullable=False)
     year   = db.Column(db.String(4),   nullable=False)
     icon   = db.Column(db.String(10),  default="🏅")
+    image  = db.Column(db.Text,        default="")
 
     def to_dict(self):
-        return {"id": self.id, "name": self.name,
-                "issuer": self.issuer, "year": self.year, "icon": self.icon}
+        return {"id": self.id, "name": self.name, "issuer": self.issuer,
+                "year": self.year, "icon": self.icon, "image": self.image or ""}
 
 
 class Skill(db.Model):
@@ -273,7 +278,8 @@ def get_projects():
 def add_project():
     d = request.get_json(force=True)
     p = Project(name=d["name"], emoji=d.get("emoji","✦"),
-                description=d["desc"], tags=",".join(d.get("tags",[])), url=d.get("url",""))
+                description=d["desc"], tags=",".join(d.get("tags",[])),
+                url=d.get("url",""), demo_url=d.get("demo_url",""), image=d.get("image",""))
     db.session.add(p); db.session.commit()
     return jsonify(p.to_dict()), 201
 
@@ -283,11 +289,13 @@ def update_project(pid):
     p = db.session.get(Project, pid)
     if not p: return jsonify({"error": "Not found"}), 404
     d = request.get_json(force=True)
-    if "name"  in d: p.name        = d["name"]
-    if "emoji" in d: p.emoji       = d["emoji"]
-    if "desc"  in d: p.description = d["desc"]
-    if "tags"  in d: p.tags        = ",".join(d["tags"]) if isinstance(d["tags"], list) else d["tags"]
-    if "url"   in d: p.url         = d["url"]
+    if "name"     in d: p.name        = d["name"]
+    if "emoji"    in d: p.emoji       = d["emoji"]
+    if "desc"     in d: p.description = d["desc"]
+    if "tags"     in d: p.tags        = ",".join(d["tags"]) if isinstance(d["tags"], list) else d["tags"]
+    if "url"      in d: p.url         = d["url"]
+    if "demo_url" in d: p.demo_url    = d["demo_url"]
+    if "image"    in d: p.image       = d["image"]
     db.session.commit()
     return jsonify(p.to_dict())
 
@@ -308,7 +316,7 @@ def get_certs():
 @_require_admin
 def add_cert():
     d = request.get_json(force=True)
-    c = Certification(name=d["name"], issuer=d["issuer"], year=d["year"], icon=d.get("icon","🏅"))
+    c = Certification(name=d["name"], issuer=d["issuer"], year=d["year"], icon=d.get("icon","🏅"), image=d.get("image",""))
     db.session.add(c); db.session.commit()
     return jsonify(c.to_dict()), 201
 
@@ -322,6 +330,7 @@ def update_cert(cid):
     if "issuer" in d: c.issuer = d["issuer"]
     if "year"   in d: c.year   = d["year"]
     if "icon"   in d: c.icon   = d["icon"]
+    if "image"  in d: c.image  = d["image"]
     db.session.commit()
     return jsonify(c.to_dict())
 
@@ -397,7 +406,25 @@ def mark_read(sid):
 # INIT
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _migrate():
+    from sqlalchemy import inspect, text
+    try:
+        inspector = inspect(db.engine)
+        tables = inspector.get_table_names()
+        with db.engine.connect() as conn:
+            if "projects" in tables:
+                cols = {c["name"] for c in inspector.get_columns("projects")}
+                if "image"    not in cols: conn.execute(text("ALTER TABLE projects ADD COLUMN image TEXT DEFAULT ''"))
+                if "demo_url" not in cols: conn.execute(text("ALTER TABLE projects ADD COLUMN demo_url VARCHAR(300) DEFAULT ''"))
+            if "certifications" in tables:
+                cols = {c["name"] for c in inspector.get_columns("certifications")}
+                if "image" not in cols: conn.execute(text("ALTER TABLE certifications ADD COLUMN image TEXT DEFAULT ''"))
+            conn.commit()
+    except Exception as e:
+        print(f"Migration note: {e}")
+
 with app.app_context():
+    _migrate()
     db.create_all()
     _seed()
 

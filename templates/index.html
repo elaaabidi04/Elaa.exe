@@ -98,12 +98,19 @@
   .project-card:hover { transform:translateY(-5px); box-shadow:0 16px 40px var(--shadow); }
   .project-card::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--pink),var(--sky)); }
   .project-emoji { font-size:2rem; margin-bottom:16px; display:block; }
+  .project-img { width:100%; height:160px; object-fit:cover; border-radius:12px; margin-bottom:16px; display:block; }
   .project-name { font-family:'Playfair Display',serif; font-size:1.15rem; font-weight:700; margin-bottom:8px; }
   .project-desc { font-size:.85rem; line-height:1.65; color:var(--muted); margin-bottom:18px; }
   .project-tags { display:flex; flex-wrap:wrap; gap:6px; }
   .project-tag { font-family:'DM Sans',sans-serif; font-size:.7rem; font-weight:500; padding:3px 10px; border-radius:8px; background:var(--blush); color:var(--muted); }
+  .project-links { display:flex; gap:14px; flex-wrap:wrap; }
   .project-link { display:inline-block; margin-top:14px; font-family:'DM Sans',sans-serif; font-size:.75rem; letter-spacing:.06em; color:var(--pink); text-decoration:none; }
   .project-link:hover { text-decoration:underline; }
+  .cert-proof-btn { font-family:'DM Sans',sans-serif; font-size:.72rem; font-weight:500; padding:4px 12px; border-radius:10px; border:1.5px solid var(--line); background:none; color:var(--muted); cursor:pointer; transition:all .2s; white-space:nowrap; }
+  .cert-proof-btn:hover { border-color:var(--pink); color:var(--pink); }
+  .proof-modal-img { max-width:100%; border-radius:12px; display:block; margin:0 auto; }
+  .upload-label { display:block; font-family:'DM Sans',sans-serif; font-size:.78rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .upload-preview { width:100%; height:120px; object-fit:cover; border-radius:10px; margin-top:8px; display:none; border:1px solid var(--line); }
 
   /* CERTS */
   .certs-list { display:flex; flex-direction:column; gap:16px; }
@@ -323,6 +330,7 @@
     <li><a href="#experience">Experience</a></li>
     <li><a href="#projects">Projects</a></li>
     <li><a href="#certifications">Certifications</a></li>
+    <li><a href="https://github.com/elaaabidi04" target="_blank" rel="noopener">GitHub ↗</a></li>
     <li><a href="https://www.linkedin.com/in/elaa-abidi-01217a2b7" target="_blank" rel="noopener">LinkedIn ↗</a></li>
   </ul>
   <button class="nav-admin-btn" onclick="App.openLoginModal()">✦ Admin<span class="notif-dot" id="notif-dot"></span></button>
@@ -414,11 +422,15 @@
   <div class="projects-grid" id="projects-grid">
     {% for p in projects %}
     <div class="project-card">
-      <span class="project-emoji">{{ p.emoji }}</span>
+      {% if p.image %}<img class="project-img" src="{{ p.image }}" alt="{{ p.name }}">
+      {% else %}<span class="project-emoji">{{ p.emoji }}</span>{% endif %}
       <p class="project-name">{{ p.name }}</p>
       <p class="project-desc">{{ p.desc }}</p>
       <div class="project-tags">{% for t in p.tags %}<span class="project-tag">{{ t }}</span>{% endfor %}</div>
-      {% if p.url %}<a class="project-link" href="{{ p.url }}" target="_blank" rel="noopener">View on GitHub ↗</a>{% endif %}
+      <div class="project-links">
+        {% if p.url %}<a class="project-link" href="{{ p.url }}" target="_blank" rel="noopener">GitHub ↗</a>{% endif %}
+        {% if p.demo_url %}<a class="project-link" href="{{ p.demo_url }}" target="_blank" rel="noopener">Live demo ↗</a>{% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -438,6 +450,7 @@
         <p class="cert-issuer">{{ c.issuer }}</p>
       </div>
       <span class="cert-year">{{ c.year }}</span>
+      {% if c.image %}<button class="cert-proof-btn" onclick="App.showProof('{{ c.image }}')">View proof</button>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -523,7 +536,13 @@
       <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="p-desc" placeholder="Short description…"></textarea></div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Tech stack (comma-separated)</label><input class="form-input" id="p-tags" placeholder="Python, Flask, SQL"></div>
-        <div class="form-group"><label class="form-label">GitHub / Live URL</label><input class="form-input" id="p-url" placeholder="https://github.com/…"></div>
+        <div class="form-group"><label class="form-label">GitHub URL</label><input class="form-input" id="p-url" placeholder="https://github.com/…"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Demo / Live URL</label><input class="form-input" id="p-demo" placeholder="https://…"></div>
+      <div class="form-group">
+        <label class="upload-label">Project image (optional)</label>
+        <input type="file" accept="image/*" id="p-img-file" onchange="App.previewImg(this,'p-img-preview')">
+        <img class="upload-preview" id="p-img-preview">
       </div>
       <button class="btn-full" onclick="App.addProject()">Add project ✦</button>
       <p class="admin-section-title" style="margin-top:40px">Existing projects</p>
@@ -540,6 +559,11 @@
       <div class="form-row">
         <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="c-year" placeholder="2026"></div>
         <div class="form-group"><label class="form-label">Icon emoji</label><input class="form-input" id="c-icon" placeholder="🏅" maxlength="4"></div>
+      </div>
+      <div class="form-group">
+        <label class="upload-label">Certificate proof image (optional)</label>
+        <input type="file" accept="image/*" id="c-img-file" onchange="App.previewImg(this,'c-img-preview')">
+        <img class="upload-preview" id="c-img-preview">
       </div>
       <button class="btn-full" onclick="App.addCert()">Add certification ✦</button>
       <p class="admin-section-title" style="margin-top:40px">Existing certifications</p>
@@ -570,6 +594,15 @@
       <p class="admin-section-title">Recruiter conversations</p>
       <div id="admin-inbox-list"><p style="color:var(--muted);font-size:.85rem">Loading…</p></div>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════════ PROOF MODAL ═══════════════ -->
+<div class="modal-overlay" id="proof-modal">
+  <div class="modal-box" style="max-width:600px">
+    <button class="modal-close" onclick="App.closeProofModal()">✕</button>
+    <h2 class="modal-title">Certificate Proof</h2>
+    <img class="proof-modal-img" id="proof-modal-img" src="" alt="Certificate proof">
   </div>
 </div>
 
@@ -681,6 +714,32 @@ const Chat = (() => {
    ADMIN MODULE  — talks to Flask /api/* endpoints
    ──────────────────────────────────────────────────*/
 const App = (() => {
+  const _data = { projects: {}, certs: {}, skills: {} };
+
+  // ── image helpers ────────────────────────────────────────────
+  function previewImg(input, previewId) {
+    const preview = document.getElementById(previewId);
+    if (!input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(input.files[0]);
+  }
+
+  function _readFile(inputId) {
+    return new Promise(resolve => {
+      const file = document.getElementById(inputId)?.files[0];
+      if (!file) return resolve('');
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function showProof(src) {
+    document.getElementById('proof-modal-img').src = src;
+    document.getElementById('proof-modal').classList.add('active');
+  }
+  function closeProofModal() { document.getElementById('proof-modal').classList.remove('active'); }
 
   function openLoginModal()  {
     document.getElementById('login-modal').classList.add('active');
@@ -732,11 +791,15 @@ const App = (() => {
       fetch('/api/certifications').then(r=>r.json()),
       fetch('/api/skills').then(r=>r.json()),
     ]);
+    projects.forEach(p => _data.projects[p.id] = p);
+    certs.forEach(c    => _data.certs[c.id]    = c);
+    skills.forEach(s   => _data.skills[s.id]   = s);
+
     document.getElementById('admin-projects-list').innerHTML = projects.map(p =>
       `<div class="existing-item">
-        <span class="existing-item-name">${p.emoji} ${p.name}</span>
+        <span class="existing-item-name">${p.image ? `<img src="${p.image}" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:6px;">` : p.emoji + ' '}${p.name}</span>
         <div class="item-actions">
-          <button class="edit-btn" onclick='App.editProject(${JSON.stringify(p)})'>✎ Edit</button>
+          <button class="edit-btn" onclick="App.editProject(${p.id})">✎ Edit</button>
           <button class="delete-btn" onclick="App.deleteProject(${p.id})">🗑</button>
         </div>
       </div>`
@@ -744,9 +807,9 @@ const App = (() => {
 
     document.getElementById('admin-certs-list').innerHTML = certs.map(c =>
       `<div class="existing-item">
-        <span class="existing-item-name">${c.icon} ${c.name} — ${c.issuer}</span>
+        <span class="existing-item-name">${c.image ? `<img src="${c.image}" style="width:28px;height:28px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:6px;">` : c.icon + ' '}${c.name} — ${c.issuer}</span>
         <div class="item-actions">
-          <button class="edit-btn" onclick='App.editCert(${JSON.stringify(c)})'>✎ Edit</button>
+          <button class="edit-btn" onclick="App.editCert(${c.id})">✎ Edit</button>
           <button class="delete-btn" onclick="App.deleteCert(${c.id})">🗑</button>
         </div>
       </div>`
@@ -756,7 +819,7 @@ const App = (() => {
       `<div class="existing-item">
         <span class="existing-item-name">${s.name} <span style="font-size:.75rem;color:var(--muted)">[${s.cat}]</span></span>
         <div class="item-actions">
-          <button class="edit-btn" onclick='App.editSkill(${JSON.stringify(s)})'>✎ Edit</button>
+          <button class="edit-btn" onclick="App.editSkill(${s.id})">✎ Edit</button>
           <button class="delete-btn" onclick="App.deleteSkill(${s.id})">🗑</button>
         </div>
       </div>`
@@ -769,12 +832,15 @@ const App = (() => {
   async function addProject() {
     const name = _val('p-name'), desc = _val('p-desc');
     if (!name || !desc) return alert('Name and description are required.');
-    const tags = _val('p-tags').split(',').map(t=>t.trim()).filter(Boolean);
+    const tags  = _val('p-tags').split(',').map(t=>t.trim()).filter(Boolean);
+    const image = await _readFile('p-img-file');
     await fetch('/api/projects', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ name, desc, emoji:_val('p-emoji')||'✦', tags, url:_val('p-url') })
+      body: JSON.stringify({ name, desc, emoji:_val('p-emoji')||'✦', tags, url:_val('p-url'), demo_url:_val('p-demo'), image })
     });
-    _clear('p-name','p-desc','p-emoji','p-tags','p-url');
+    _clear('p-name','p-desc','p-emoji','p-tags','p-url','p-demo');
+    document.getElementById('p-img-file').value = '';
+    document.getElementById('p-img-preview').style.display = 'none';
     _refreshAdmin();
   }
 
@@ -787,11 +853,14 @@ const App = (() => {
   async function addCert() {
     const name=_val('c-name'), issuer=_val('c-issuer'), year=_val('c-year');
     if (!name||!issuer||!year) return alert('All fields required.');
+    const image = await _readFile('c-img-file');
     await fetch('/api/certifications', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ name, issuer, year, icon:_val('c-icon')||'🏅' })
+      body: JSON.stringify({ name, issuer, year, icon:_val('c-icon')||'🏅', image })
     });
     _clear('c-name','c-issuer','c-year','c-icon');
+    document.getElementById('c-img-file').value = '';
+    document.getElementById('c-img-preview').style.display = 'none';
     _refreshAdmin();
   }
 
@@ -824,7 +893,8 @@ const App = (() => {
 
   function closeEditModal() { document.getElementById('edit-modal').classList.remove('active'); }
 
-  function editProject(p) {
+  function editProject(id) {
+    const p = _data.projects[id];
     document.getElementById('edit-modal-title').textContent = 'Edit Project';
     document.getElementById('edit-modal-body').innerHTML = `
       <div class="form-row">
@@ -833,19 +903,27 @@ const App = (() => {
       </div>
       <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ep-desc">${p.desc}</textarea></div>
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Tags (comma-separated)</label><input class="form-input" id="ep-tags" value="${p.tags.join(',')}"></div>
-        <div class="form-group"><label class="form-label">URL</label><input class="form-input" id="ep-url" value="${p.url}"></div>
+        <div class="form-group"><label class="form-label">Tags</label><input class="form-input" id="ep-tags" value="${p.tags.join(',')}"></div>
+        <div class="form-group"><label class="form-label">GitHub URL</label><input class="form-input" id="ep-url" value="${p.url}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Demo URL</label><input class="form-input" id="ep-demo" value="${p.demo_url}"></div>
+      <div class="form-group">
+        <label class="upload-label">Replace image</label>
+        <input type="file" accept="image/*" id="ep-img-file" onchange="App.previewImg(this,'ep-img-preview')">
+        ${p.image ? `<img src="${p.image}" class="upload-preview" id="ep-img-preview" style="display:block">` : `<img class="upload-preview" id="ep-img-preview">`}
       </div>`;
-    _editSave = async () => {
-      await fetch(`/api/projects/${p.id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name:_val('ep-name'), emoji:_val('ep-emoji'), desc:_val('ep-desc'), tags:_val('ep-tags'), url:_val('ep-url') }) });
+    document.getElementById('edit-modal-save').onclick = async () => {
+      const newImg = await _readFile('ep-img-file');
+      await fetch('/api/projects/' + p.id, { method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:_val('ep-name'), emoji:_val('ep-emoji'), desc:_val('ep-desc'),
+          tags:_val('ep-tags'), url:_val('ep-url'), demo_url:_val('ep-demo'), image: newImg || p.image }) });
       closeEditModal(); _refreshAdmin();
     };
     document.getElementById('edit-modal').classList.add('active');
-    document.getElementById('edit-modal-save').onclick = _editSave;
   }
 
-  function editCert(c) {
+  function editCert(id) {
+    const c = _data.certs[id];
     document.getElementById('edit-modal-title').textContent = 'Edit Certification';
     document.getElementById('edit-modal-body').innerHTML = `
       <div class="form-row">
@@ -855,34 +933,39 @@ const App = (() => {
       <div class="form-row">
         <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="ec-year" value="${c.year}"></div>
         <div class="form-group"><label class="form-label">Icon</label><input class="form-input" id="ec-icon" value="${c.icon}" maxlength="4"></div>
+      </div>
+      <div class="form-group">
+        <label class="upload-label">Replace proof image</label>
+        <input type="file" accept="image/*" id="ec-img-file" onchange="App.previewImg(this,'ec-img-preview')">
+        ${c.image ? `<img src="${c.image}" class="upload-preview" id="ec-img-preview" style="display:block">` : `<img class="upload-preview" id="ec-img-preview">`}
       </div>`;
-    _editSave = async () => {
-      await fetch(`/api/certifications/${c.id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name:_val('ec-name'), issuer:_val('ec-issuer'), year:_val('ec-year'), icon:_val('ec-icon') }) });
+    document.getElementById('edit-modal-save').onclick = async () => {
+      const newImg = await _readFile('ec-img-file');
+      await fetch('/api/certifications/' + c.id, { method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:_val('ec-name'), issuer:_val('ec-issuer'), year:_val('ec-year'), icon:_val('ec-icon'), image: newImg || c.image }) });
       closeEditModal(); _refreshAdmin();
     };
     document.getElementById('edit-modal').classList.add('active');
-    document.getElementById('edit-modal-save').onclick = _editSave;
   }
 
-  function editSkill(s) {
+  function editSkill(id) {
+    const s = _data.skills[id];
     document.getElementById('edit-modal-title').textContent = 'Edit Skill';
     document.getElementById('edit-modal-body').innerHTML = `
       <div class="form-row">
         <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="es-name" value="${s.name}"></div>
         <div class="form-group"><label class="form-label">Category</label>
           <select class="form-select" id="es-cat">
-            ${['language','framework','tool','other'].map(o => `<option value="${o}" ${s.cat===o?'selected':''}>${o}</option>`).join('')}
+            ${['language','framework','tool','other'].map(o=>`<option value="${o}"${s.cat===o?' selected':''}>${o}</option>`).join('')}
           </select>
         </div>
       </div>`;
-    _editSave = async () => {
-      await fetch(`/api/skills/${s.id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+    document.getElementById('edit-modal-save').onclick = async () => {
+      await fetch('/api/skills/' + s.id, { method:'PUT', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ name:_val('es-name'), cat: document.getElementById('es-cat').value }) });
       closeEditModal(); _refreshAdmin();
     };
     document.getElementById('edit-modal').classList.add('active');
-    document.getElementById('edit-modal-save').onclick = _editSave;
   }
 
   // ── Inbox ────────────────────────────────────────────────────
@@ -942,7 +1025,8 @@ const App = (() => {
            addProject, deleteProject, editProject,
            addCert, deleteCert, editCert,
            addSkill, deleteSkill, editSkill,
-           closeEditModal, toggleConvo, markRead };
+           closeEditModal, toggleConvo, markRead,
+           previewImg, showProof, closeProofModal };
 })();
 
 // close modals on overlay click
@@ -951,6 +1035,9 @@ document.getElementById('login-modal').addEventListener('click', function(e) {
 });
 document.getElementById('edit-modal').addEventListener('click', function(e) {
   if (e.target === this) App.closeEditModal();
+});
+document.getElementById('proof-modal').addEventListener('click', function(e) {
+  if (e.target === this) App.closeProofModal();
 });
 
 // Lift chat window when mobile keyboard opens
