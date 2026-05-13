@@ -267,10 +267,36 @@
   .admin-tab.active { background:var(--pink); border-color:var(--pink); color:#fff; }
   .admin-content { display:none; }
   .admin-content.active { display:block; }
-  .existing-item { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border:1px solid var(--line); border-radius:12px; margin-bottom:10px; background:#fff; }
-  .existing-item-name { font-size:.9rem; font-family:'Playfair Display',serif; }
+  .existing-item { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border:1px solid var(--line); border-radius:12px; margin-bottom:10px; background:#fff; gap:10px; }
+  .existing-item-name { font-size:.9rem; font-family:'Playfair Display',serif; flex:1; }
+  .item-actions { display:flex; gap:6px; flex-shrink:0; }
   .delete-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; transition:color .2s; }
   .delete-btn:hover { color:#e05; }
+  .edit-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:.85rem; transition:color .2s; font-family:'DM Sans',sans-serif; }
+  .edit-btn:hover { color:var(--pink); }
+
+  /* notification badge on admin button */
+  .nav-admin-btn { position:relative; }
+  .notif-dot { position:absolute; top:-4px; right:-4px; width:10px; height:10px; border-radius:50%; background:#e05; border:2px solid var(--cream); display:none; }
+  .notif-dot.active { display:block; }
+
+  /* conversations inbox */
+  .convo-card { border:1px solid var(--line); border-radius:14px; margin-bottom:12px; overflow:hidden; background:#fff; }
+  .convo-card.flagged { border-color:var(--pink); }
+  .convo-header { display:flex; align-items:center; gap:10px; padding:14px 18px; cursor:pointer; }
+  .convo-flag { font-size:.7rem; font-family:'DM Sans',sans-serif; font-weight:700; letter-spacing:.06em; padding:3px 8px; border-radius:8px; background:var(--blush); color:var(--pink); flex-shrink:0; }
+  .convo-preview { flex:1; font-size:.85rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .convo-time { font-family:'DM Sans',sans-serif; font-size:.72rem; color:var(--muted); flex-shrink:0; }
+  .convo-unread { width:8px; height:8px; border-radius:50%; background:var(--pink); flex-shrink:0; }
+  .convo-messages { display:none; padding:0 18px 16px; border-top:1px solid var(--line); }
+  .convo-messages.open { display:block; }
+  .convo-msg { padding:8px 0; border-bottom:1px solid var(--line); font-size:.83rem; line-height:1.5; }
+  .convo-msg:last-child { border-bottom:none; }
+  .convo-msg-role { font-family:'DM Sans',sans-serif; font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; margin-bottom:2px; }
+  .convo-msg.user .convo-msg-role { color:var(--pink); }
+  .convo-msg.assistant .convo-msg-role { color:var(--muted); }
+  .convo-read-btn { margin-top:10px; font-family:'DM Sans',sans-serif; font-size:.75rem; background:none; border:1.5px solid var(--line); color:var(--muted); padding:5px 14px; border-radius:10px; cursor:pointer; transition:all .2s; }
+  .convo-read-btn:hover { border-color:var(--pink); color:var(--pink); }
 
   @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 
@@ -299,7 +325,7 @@
     <li><a href="#certifications">Certifications</a></li>
     <li><a href="https://www.linkedin.com/in/elaa-abidi-01217a2b7" target="_blank" rel="noopener">LinkedIn ↗</a></li>
   </ul>
-  <button class="nav-admin-btn" onclick="App.openLoginModal()">✦ Admin</button>
+  <button class="nav-admin-btn" onclick="App.openLoginModal()">✦ Admin<span class="notif-dot" id="notif-dot"></span></button>
 </nav>
 
 <section id="hero">
@@ -484,6 +510,7 @@
       <button class="admin-tab active" onclick="App.switchTab('projects')">Projects</button>
       <button class="admin-tab" onclick="App.switchTab('certs')">Certifications</button>
       <button class="admin-tab" onclick="App.switchTab('skills')">Skills</button>
+      <button class="admin-tab" onclick="App.switchTab('inbox')">Inbox <span id="inbox-count" style="display:none;background:var(--pink);color:#fff;border-radius:8px;padding:1px 6px;font-size:.68rem;margin-left:4px;"></span></button>
     </div>
 
     <!-- PROJECTS -->
@@ -537,6 +564,22 @@
       <p class="admin-section-title" style="margin-top:40px">Existing skills</p>
       <div id="admin-skills-list"></div>
     </div>
+
+    <!-- INBOX -->
+    <div class="admin-content" id="tab-inbox">
+      <p class="admin-section-title">Recruiter conversations</p>
+      <div id="admin-inbox-list"><p style="color:var(--muted);font-size:.85rem">Loading…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ EDIT MODAL ═══════════════ -->
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="App.closeEditModal()">✕</button>
+    <h2 class="modal-title" id="edit-modal-title">Edit</h2>
+    <div id="edit-modal-body"></div>
+    <button class="btn-full" id="edit-modal-save" style="margin-top:8px">Save changes ✦</button>
   </div>
 </div>
 
@@ -546,9 +589,10 @@
    CHAT MODULE  — talks to /api/chat (Flask backend)
    ──────────────────────────────────────────────────*/
 const Chat = (() => {
-  let open    = false;
-  let loading = false;
-  let history = [];   // [{role,content}]
+  let open      = false;
+  let loading   = false;
+  let history   = [];
+  let sessionId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 
   function toggle() {
     open = !open;
@@ -592,10 +636,11 @@ const Chat = (() => {
       const res  = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history: history.slice(0,-1) })
+        body: JSON.stringify({ message: msg, history: history.slice(0,-1), session_id: sessionId })
       });
       const data = await res.json();
       const reply = data.reply || 'Sorry, something went wrong.';
+      if (data.session_id) sessionId = data.session_id;
       typingEl.remove();
       _appendMsg('bot', reply);
       history.push({ role:'assistant', content: reply });
@@ -674,10 +719,11 @@ const App = (() => {
 
   function switchTab(tabId) {
     document.querySelectorAll('.admin-tab').forEach((t,i) => {
-      t.classList.toggle('active', ['projects','certs','skills'][i] === tabId);
+      t.classList.toggle('active', ['projects','certs','skills','inbox'][i] === tabId);
     });
     document.querySelectorAll('.admin-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + tabId).classList.add('active');
+    if (tabId === 'inbox') _loadInbox();
   }
 
   async function _refreshAdmin() {
@@ -687,15 +733,33 @@ const App = (() => {
       fetch('/api/skills').then(r=>r.json()),
     ]);
     document.getElementById('admin-projects-list').innerHTML = projects.map(p =>
-      `<div class="existing-item"><span class="existing-item-name">${p.emoji} ${p.name}</span><button class="delete-btn" onclick="App.deleteProject(${p.id})">🗑</button></div>`
+      `<div class="existing-item">
+        <span class="existing-item-name">${p.emoji} ${p.name}</span>
+        <div class="item-actions">
+          <button class="edit-btn" onclick='App.editProject(${JSON.stringify(p)})'>✎ Edit</button>
+          <button class="delete-btn" onclick="App.deleteProject(${p.id})">🗑</button>
+        </div>
+      </div>`
     ).join('') || '<p style="color:var(--muted);font-size:.85rem">No projects yet.</p>';
 
     document.getElementById('admin-certs-list').innerHTML = certs.map(c =>
-      `<div class="existing-item"><span class="existing-item-name">${c.icon} ${c.name} — ${c.issuer}</span><button class="delete-btn" onclick="App.deleteCert(${c.id})">🗑</button></div>`
+      `<div class="existing-item">
+        <span class="existing-item-name">${c.icon} ${c.name} — ${c.issuer}</span>
+        <div class="item-actions">
+          <button class="edit-btn" onclick='App.editCert(${JSON.stringify(c)})'>✎ Edit</button>
+          <button class="delete-btn" onclick="App.deleteCert(${c.id})">🗑</button>
+        </div>
+      </div>`
     ).join('') || '<p style="color:var(--muted);font-size:.85rem">No certs yet.</p>';
 
     document.getElementById('admin-skills-list').innerHTML = skills.map(s =>
-      `<div class="existing-item"><span class="existing-item-name">${s.name} <span style="font-size:.75rem;color:var(--muted)">[${s.cat}]</span></span><button class="delete-btn" onclick="App.deleteSkill(${s.id})">🗑</button></div>`
+      `<div class="existing-item">
+        <span class="existing-item-name">${s.name} <span style="font-size:.75rem;color:var(--muted)">[${s.cat}]</span></span>
+        <div class="item-actions">
+          <button class="edit-btn" onclick='App.editSkill(${JSON.stringify(s)})'>✎ Edit</button>
+          <button class="delete-btn" onclick="App.deleteSkill(${s.id})">🗑</button>
+        </div>
+      </div>`
     ).join('') || '<p style="color:var(--muted);font-size:.85rem">No skills yet.</p>';
   }
 
@@ -755,12 +819,138 @@ const App = (() => {
     _refreshAdmin();
   }
 
-  return { openLoginModal, closeLoginModal, login, closeAdmin, switchTab, addProject, deleteProject, addCert, deleteCert, addSkill, deleteSkill };
+  // ── Edit modal ──────────────────────────────────────────────
+  let _editSave = null;
+
+  function closeEditModal() { document.getElementById('edit-modal').classList.remove('active'); }
+
+  function editProject(p) {
+    document.getElementById('edit-modal-title').textContent = 'Edit Project';
+    document.getElementById('edit-modal-body').innerHTML = `
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="ep-name" value="${p.name}"></div>
+        <div class="form-group"><label class="form-label">Emoji</label><input class="form-input" id="ep-emoji" value="${p.emoji}" maxlength="4"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ep-desc">${p.desc}</textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Tags (comma-separated)</label><input class="form-input" id="ep-tags" value="${p.tags.join(',')}"></div>
+        <div class="form-group"><label class="form-label">URL</label><input class="form-input" id="ep-url" value="${p.url}"></div>
+      </div>`;
+    _editSave = async () => {
+      await fetch(`/api/projects/${p.id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:_val('ep-name'), emoji:_val('ep-emoji'), desc:_val('ep-desc'), tags:_val('ep-tags'), url:_val('ep-url') }) });
+      closeEditModal(); _refreshAdmin();
+    };
+    document.getElementById('edit-modal').classList.add('active');
+    document.getElementById('edit-modal-save').onclick = _editSave;
+  }
+
+  function editCert(c) {
+    document.getElementById('edit-modal-title').textContent = 'Edit Certification';
+    document.getElementById('edit-modal-body').innerHTML = `
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="ec-name" value="${c.name}"></div>
+        <div class="form-group"><label class="form-label">Issuer</label><input class="form-input" id="ec-issuer" value="${c.issuer}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Year</label><input class="form-input" id="ec-year" value="${c.year}"></div>
+        <div class="form-group"><label class="form-label">Icon</label><input class="form-input" id="ec-icon" value="${c.icon}" maxlength="4"></div>
+      </div>`;
+    _editSave = async () => {
+      await fetch(`/api/certifications/${c.id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:_val('ec-name'), issuer:_val('ec-issuer'), year:_val('ec-year'), icon:_val('ec-icon') }) });
+      closeEditModal(); _refreshAdmin();
+    };
+    document.getElementById('edit-modal').classList.add('active');
+    document.getElementById('edit-modal-save').onclick = _editSave;
+  }
+
+  function editSkill(s) {
+    document.getElementById('edit-modal-title').textContent = 'Edit Skill';
+    document.getElementById('edit-modal-body').innerHTML = `
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="es-name" value="${s.name}"></div>
+        <div class="form-group"><label class="form-label">Category</label>
+          <select class="form-select" id="es-cat">
+            ${['language','framework','tool','other'].map(o => `<option value="${o}" ${s.cat===o?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+      </div>`;
+    _editSave = async () => {
+      await fetch(`/api/skills/${s.id}`, { method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name:_val('es-name'), cat: document.getElementById('es-cat').value }) });
+      closeEditModal(); _refreshAdmin();
+    };
+    document.getElementById('edit-modal').classList.add('active');
+    document.getElementById('edit-modal-save').onclick = _editSave;
+  }
+
+  // ── Inbox ────────────────────────────────────────────────────
+  async function _loadInbox() {
+    const convos = await fetch('/api/admin/conversations').then(r => r.json());
+    const el = document.getElementById('admin-inbox-list');
+    if (!convos.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.85rem">No conversations yet.</p>'; return; }
+    el.innerHTML = convos.map(c => `
+      <div class="convo-card ${c.flagged ? 'flagged' : ''}" id="convo-${c.id}">
+        <div class="convo-header" onclick="App.toggleConvo('${c.id}')">
+          ${c.flagged ? '<span class="convo-flag">🎓 Internship</span>' : ''}
+          <span class="convo-preview">${c.preview}</span>
+          <span class="convo-time">${c.started_at}</span>
+          ${!c.read && c.flagged ? '<span class="convo-unread"></span>' : ''}
+        </div>
+        <div class="convo-messages" id="msgs-${c.id}">
+          ${c.messages.map(m => `
+            <div class="convo-msg ${m.role}">
+              <div class="convo-msg-role">${m.role === 'user' ? 'Recruiter' : 'AI'} · ${m.time}</div>
+              <div>${m.content}</div>
+            </div>`).join('')}
+          ${c.flagged && !c.read ? `<button class="convo-read-btn" onclick="App.markRead('${c.id}')">Mark as read</button>` : ''}
+        </div>
+      </div>`).join('');
+    _updateInboxBadge(convos.filter(c => c.flagged && !c.read).length);
+  }
+
+  function toggleConvo(id) {
+    document.getElementById('msgs-' + id).classList.toggle('open');
+  }
+
+  async function markRead(id) {
+    await fetch(`/api/admin/conversations/${id}/read`, { method:'POST' });
+    _loadInbox();
+  }
+
+  // ── Notification polling ─────────────────────────────────────
+  function _updateInboxBadge(count) {
+    const dot   = document.getElementById('notif-dot');
+    const badge = document.getElementById('inbox-count');
+    dot.classList.toggle('active', count > 0);
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline'; }
+    else badge.style.display = 'none';
+  }
+
+  async function _pollNotifications() {
+    try {
+      const data = await fetch('/api/admin/notifications').then(r => r.json());
+      _updateInboxBadge(data.count);
+    } catch {}
+  }
+
+  setInterval(_pollNotifications, 30000);
+  _pollNotifications();
+
+  return { openLoginModal, closeLoginModal, login, closeAdmin, switchTab,
+           addProject, deleteProject, editProject,
+           addCert, deleteCert, editCert,
+           addSkill, deleteSkill, editSkill,
+           closeEditModal, toggleConvo, markRead };
 })();
 
-// close login modal on overlay click
+// close modals on overlay click
 document.getElementById('login-modal').addEventListener('click', function(e) {
   if (e.target === this) App.closeLoginModal();
+});
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) App.closeEditModal();
 });
 
 // Lift chat window when mobile keyboard opens

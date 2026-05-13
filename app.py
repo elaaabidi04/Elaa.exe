@@ -1,4 +1,6 @@
 import os
+import uuid
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
@@ -76,6 +78,42 @@ class Skill(db.Model):
         return {"id": self.id, "name": self.name, "cat": self.category}
 
 
+class ChatSession(db.Model):
+    __tablename__ = "chat_sessions"
+    id         = db.Column(db.String(36), primary_key=True)
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    flagged    = db.Column(db.Boolean, default=False)
+    read       = db.Column(db.Boolean, default=False)
+    messages   = db.relationship("ChatMessage", backref="session", lazy=True, order_by="ChatMessage.id")
+
+    def to_dict(self):
+        msgs = [m.to_dict() for m in self.messages]
+        preview = (msgs[0]["content"][:80] + "…") if msgs else ""
+        return {
+            "id": self.id,
+            "started_at": self.started_at.strftime("%b %d, %H:%M"),
+            "flagged": self.flagged,
+            "read": self.read,
+            "preview": preview,
+            "messages": msgs,
+        }
+
+
+class ChatMessage(db.Model):
+    __tablename__ = "chat_messages"
+    id         = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(36), db.ForeignKey("chat_sessions.id"), nullable=False)
+    role       = db.Column(db.String(10), nullable=False)
+    content    = db.Column(db.Text, nullable=False)
+    timestamp  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {"role": self.role, "content": self.content, "time": self.timestamp.strftime("%H:%M")}
+
+
+INTERNSHIP_KEYWORDS = {"internship", "intern", "stage", "stagiaire", "تدريب", "تربص", "staj", "intership"}
+
+
 # ── Seed default data ──────────────────────────────────────────────────────────
 def _seed():
     if Project.query.count() > 0:
@@ -116,7 +154,7 @@ def _portfolio_context_str():
     cert_text  = "\n".join(f"- {c.name} by {c.issuer} ({c.year})"    for c in Certification.query.all())
     skill_text = ", ".join(s.name for s in Skill.query.all())
     return f"""OWNER: Elaa Abidi
-ROLE: First-year CS Engineering student at ESPRIM, Tunis, Tunisia
+ROLE: First-year CS Engineering student at ESPRIM, Monastir, Tunisia
 LOOKING FOR: Internship in full-stack / AI development
 
 PROJECTS:
@@ -158,9 +196,22 @@ def chat():
     data         = request.get_json(force=True)
     user_message = (data.get("message") or "").strip()
     history      = data.get("history", [])
+    session_id   = data.get("session_id", "")
 
     if not user_message:
         return jsonify({"error": "Empty message"}), 400
+
+    # Get or create chat session
+    chat_sess = db.session.get(ChatSession, session_id) if session_id else None
+    if not chat_sess:
+        chat_sess = ChatSession(id=str(uuid.uuid4()))
+        db.session.add(chat_sess)
+        db.session.flush()
+
+    db.session.add(ChatMessage(session_id=chat_sess.id, role="user", content=user_message))
+    if any(kw in user_message.lower() for kw in INTERNSHIP_KEYWORDS):
+        chat_sess.flagged = True
+        chat_sess.read    = False
 
     system_prompt = f"""You are an AI assistant embedded in Elaa's portfolio website.
 Your ONLY job is to answer questions about Elaa — her projects, skills, experience, and background.
@@ -181,9 +232,13 @@ Here is Elaa's portfolio data:
         response = nvidia_client.chat.completions.create(
             model=NVIDIA_MODEL, messages=messages, max_tokens=400, temperature=0.7,
         )
-        return jsonify({"reply": response.choices[0].message.content.strip()})
+        reply = response.choices[0].message.content.strip()
     except Exception as e:
-        return jsonify({"reply": f"Sorry, I couldn't reach the AI right now. ({str(e)[:80]})"}), 200
+        reply = f"Sorry, I couldn't reach the AI right now. ({str(e)[:80]})"
+
+    db.session.add(ChatMessage(session_id=chat_sess.id, role="assistant", content=reply))
+    db.session.commit()
+    return jsonify({"reply": reply, "session_id": chat_sess.id})
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -222,6 +277,20 @@ def add_project():
     db.session.add(p); db.session.commit()
     return jsonify(p.to_dict()), 201
 
+@app.route("/api/projects/<int:pid>", methods=["PUT"])
+@_require_admin
+def update_project(pid):
+    p = db.session.get(Project, pid)
+    if not p: return jsonify({"error": "Not found"}), 404
+    d = request.get_json(force=True)
+    if "name"  in d: p.name        = d["name"]
+    if "emoji" in d: p.emoji       = d["emoji"]
+    if "desc"  in d: p.description = d["desc"]
+    if "tags"  in d: p.tags        = ",".join(d["tags"]) if isinstance(d["tags"], list) else d["tags"]
+    if "url"   in d: p.url         = d["url"]
+    db.session.commit()
+    return jsonify(p.to_dict())
+
 @app.route("/api/projects/<int:pid>", methods=["DELETE"])
 @_require_admin
 def delete_project(pid):
@@ -242,6 +311,19 @@ def add_cert():
     c = Certification(name=d["name"], issuer=d["issuer"], year=d["year"], icon=d.get("icon","🏅"))
     db.session.add(c); db.session.commit()
     return jsonify(c.to_dict()), 201
+
+@app.route("/api/certifications/<int:cid>", methods=["PUT"])
+@_require_admin
+def update_cert(cid):
+    c = db.session.get(Certification, cid)
+    if not c: return jsonify({"error": "Not found"}), 404
+    d = request.get_json(force=True)
+    if "name"   in d: c.name   = d["name"]
+    if "issuer" in d: c.issuer = d["issuer"]
+    if "year"   in d: c.year   = d["year"]
+    if "icon"   in d: c.icon   = d["icon"]
+    db.session.commit()
+    return jsonify(c.to_dict())
 
 @app.route("/api/certifications/<int:cid>", methods=["DELETE"])
 @_require_admin
@@ -264,12 +346,50 @@ def add_skill():
     db.session.add(s); db.session.commit()
     return jsonify(s.to_dict()), 201
 
+@app.route("/api/skills/<int:sid>", methods=["PUT"])
+@_require_admin
+def update_skill(sid):
+    s = db.session.get(Skill, sid)
+    if not s: return jsonify({"error": "Not found"}), 404
+    d = request.get_json(force=True)
+    if "name" in d: s.name     = d["name"]
+    if "cat"  in d: s.category = d["cat"]
+    db.session.commit()
+    return jsonify(s.to_dict())
+
 @app.route("/api/skills/<int:sid>", methods=["DELETE"])
 @_require_admin
 def delete_skill(sid):
     s = db.session.get(Skill, sid)
     if not s: return jsonify({"error": "Not found"}), 404
     db.session.delete(s); db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONTROLLER — Conversations (admin)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/admin/conversations")
+@_require_admin
+def get_conversations():
+    convos = ChatSession.query.order_by(ChatSession.started_at.desc()).all()
+    return jsonify([c.to_dict() for c in convos])
+
+@app.route("/api/admin/conversations/unread")
+@app.route("/api/admin/notifications")
+@_require_admin
+def unread_count():
+    count = ChatSession.query.filter_by(flagged=True, read=False).count()
+    return jsonify({"count": count})
+
+@app.route("/api/admin/conversations/<sid>/read", methods=["POST"])
+@_require_admin
+def mark_read(sid):
+    c = db.session.get(ChatSession, sid)
+    if not c: return jsonify({"error": "Not found"}), 404
+    c.read = True
+    db.session.commit()
     return jsonify({"ok": True})
 
 
