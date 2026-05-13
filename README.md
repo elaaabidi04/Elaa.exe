@@ -9,16 +9,18 @@ A diary-aesthetic developer portfolio with an AI chat assistant, Flask MVC backe
 ## Features
 
 - **Diary aesthetic UI** — ruled-paper layout with a pink/blush/lavender palette
-- **AI Chat assistant** — powered by NVIDIA LLaMA 4, answers questions about me in English, French, or Arabic
-- **Admin panel** — password-protected; add/delete projects, certifications, and skills live without touching code
+- **AI Chat assistant** — powered by NVIDIA LLaMA 4, answers questions in English, French, or Arabic
+- **Recruiter Inbox** — every chat conversation is saved; internship mentions are flagged and trigger a notification badge on the admin button
+- **Full CRUD admin panel** — add, edit, and delete projects, certifications, and skills live without touching code
+- **Image upload** — projects support cover images and demo links; certifications support proof images viewable in a modal
 - **MVC architecture** — Flask + SQLAlchemy + Jinja2
-- **PostgreSQL on Neon** — serverless database, auto-seeded on first boot
+- **PostgreSQL on Neon** — serverless database, auto-migrated and seeded on first boot
 
 ---
 
 ## Tech Stack
 
-`Python` `Flask` `SQLAlchemy` `PostgreSQL` `Jinja2` `NVIDIA LLaMA 4` `Render` `Neon` `HTML/CSS`
+`Python` `Flask` `SQLAlchemy` `PostgreSQL` `Jinja2` `NVIDIA LLaMA 4` `Render` `Neon` `HTML/CSS` `JavaScript`
 
 ---
 
@@ -45,7 +47,7 @@ pip install -r requirements.txt
 ### 4. Configure environment variables
 ```bash
 cp .env.example .env
-# Fill in your NVIDIA_API_KEY, SECRET_KEY, and ADMIN_PASSWORD
+# Fill in NVIDIA_API_KEY, SECRET_KEY, and ADMIN_PASSWORD
 ```
 
 ### 5. Run
@@ -54,14 +56,14 @@ python app.py
 # → http://127.0.0.1:5000
 ```
 
-> SQLite is used locally by default — tables and seed data are created automatically on first run.
+> SQLite is used locally by default — tables, migrations, and seed data run automatically on first boot.
 
 ---
 
 ## Deployment (Render + Neon)
 
 1. Create a PostgreSQL database on [neon.tech](https://neon.tech) and copy the connection string
-2. Create a Web Service on [render.com](https://render.com) connected to this repo
+2. Create a **Web Service** on [render.com](https://render.com) connected to this repo
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `gunicorn app:app --bind 0.0.0.0:$PORT`
 3. Set environment variables on Render:
@@ -75,7 +77,7 @@ NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
 NVIDIA_MODEL=meta/llama-4-scout-17b-16e-instruct
 ```
 
-Tables and seed data are created automatically on first boot.
+Tables, migrations, and seed data run automatically on first boot.
 
 ---
 
@@ -83,11 +85,14 @@ Tables and seed data are created automatically on first boot.
 
 Click **✦ Admin** in the nav → enter your password → manage content live.
 
+- A red dot appears on the Admin button when a recruiter mentions internship in the chat
+- Open the **Inbox** tab to read conversations and mark them as read
+
 ---
 
 ## AI Chat
 
-The floating chat bubble lets anyone ask questions about my projects, skills, and background. It reads live data from the database and responds in the visitor's language (English, French, or Arabic).
+The floating chat bubble lets anyone ask about my projects, skills, and background. It reads live data from the database and replies in the visitor's language (English, French, or Arabic).
 
 Get a free NVIDIA API key at [build.nvidia.com](https://build.nvidia.com).
 
@@ -97,7 +102,7 @@ Get a free NVIDIA API key at [build.nvidia.com](https://build.nvidia.com).
 
 ```
 portfolio/
-├── app.py                  # Flask app — models, routes, AI chat
+├── app.py                  # Flask app — models, routes, AI chat, migrations
 ├── templates/
 │   └── index.html          # Jinja2 template — full frontend
 ├── static/
